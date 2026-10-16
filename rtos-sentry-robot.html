@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SentryBot — FreeRTOS Line-Following Robot</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0A1826; --panel:#0F2236; --panel-2:#122a42; --line:#22415e;
+    --text:#E7EEF5; --muted:#8EA6BE; --amber:#FFB020; --teal:#63E6D4; --danger:#FF6B5E;
+    --radius:2px;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{
+    background:var(--bg); color:var(--text); font-family:'IBM Plex Sans',sans-serif; line-height:1.6;
+    background-image:linear-gradient(var(--line) 1px, transparent 1px), linear-gradient(90deg, var(--line) 1px, transparent 1px);
+    background-size:64px 64px; background-attachment:fixed; background-position:-1px -1px;
+  }
+  body::before{content:"";position:fixed;inset:0;background:radial-gradient(ellipse at top left, rgba(10,24,38,0.2), var(--bg) 70%);pointer-events:none;z-index:0;}
+  a{color:var(--teal);}
+  h1,h2,h3{font-family:'Space Grotesk',sans-serif;}
+  .wrap{max-width:920px;margin:0 auto;padding:0 28px;position:relative;z-index:1;}
+  .mono{font-family:'JetBrains Mono',monospace;}
+  .eyebrow{font-family:'JetBrains Mono',monospace;font-size:12px;letter-spacing:0.14em;text-transform:uppercase;color:var(--amber);display:flex;align-items:center;gap:10px;margin-bottom:14px;}
+  .eyebrow::before{content:"";width:18px;height:1px;background:var(--amber);display:inline-block;}
+  header{position:sticky;top:0;z-index:10;background:rgba(10,24,38,0.88);backdrop-filter:blur(6px);border-bottom:1px solid var(--line);}
+  header .bar{max-width:920px;margin:0 auto;padding:16px 28px;display:flex;justify-content:space-between;align-items:center;}
+  .brand{font-family:'JetBrains Mono',monospace;font-size:14px;letter-spacing:0.05em;display:flex;align-items:center;gap:10px;}
+  .brand .dot{width:8px;height:8px;background:var(--teal);border-radius:50%;box-shadow:0 0 8px var(--teal);}
+  .rev{font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--muted);border:1px solid var(--line);padding:4px 10px;border-radius:var(--radius);}
+  .hero{padding:88px 0 56px;border-bottom:1px solid var(--line);}
+  .hero h1{font-size:clamp(36px,6vw,58px);font-weight:700;line-height:1.05;letter-spacing:-0.01em;max-width:16ch;}
+  .hero .sub{color:var(--muted);font-size:18px;max-width:52ch;margin-top:18px;}
+  .status-strip{display:flex;gap:0;margin-top:44px;border:1px solid var(--line);border-radius:var(--radius);overflow:hidden;flex-wrap:wrap;}
+  .stat{flex:1;min-width:130px;padding:16px 18px;border-right:1px solid var(--line);}
+  .stat:last-child{border-right:none;}
+  .stat .n{font-family:'JetBrains Mono',monospace;font-size:22px;color:var(--amber);font-weight:600;}
+  .stat .l{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:0.08em;margin-top:4px;}
+  section{padding:64px 0;border-bottom:1px solid var(--line);}
+  section:last-of-type{border-bottom:none;}
+  h2{font-size:26px;font-weight:600;margin-bottom:8px;}
+  .lede{color:var(--muted);max-width:62ch;margin-bottom:32px;}
+  p{margin-bottom:14px;color:var(--text);}
+  table{width:100%;border-collapse:collapse;font-size:14px;}
+  th{font-family:'JetBrains Mono',monospace;font-size:11px;text-transform:uppercase;letter-spacing:0.06em;color:var(--muted);text-align:left;padding:10px 12px;border-bottom:1px solid var(--line);}
+  td{padding:12px;border-bottom:1px solid rgba(34,65,94,0.5);vertical-align:top;}
+  tr:hover td{background:rgba(99,230,212,0.03);}
+  td.mono, td .mono{font-family:'JetBrains Mono',monospace;font-size:13px;color:var(--teal);}
+  td.num{font-family:'JetBrains Mono',monospace;text-align:right;color:var(--text);}
+  tfoot td{border-bottom:none;border-top:1px solid var(--line);font-weight:600;padding-top:14px;}
+  .diagram{margin-top:24px;padding:32px 20px;border:1px solid var(--line);border-radius:var(--radius);background:rgba(15,34,54,0.4);overflow-x:auto;}
+  .diagram svg{display:block;margin:0 auto;min-width:640px;}
+  .diagram-caption{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--muted);text-align:center;margin-top:16px;letter-spacing:0.04em;}
+  pre{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:20px;overflow-x:auto;font-family:'JetBrains Mono',monospace;font-size:13px;line-height:1.7;color:#C8D9E8;}
+  .code-label{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--muted);display:flex;justify-content:space-between;margin-bottom:8px;text-transform:uppercase;letter-spacing:0.06em;}
+  .kw{color:var(--amber);} .fn{color:var(--teal);} .cm{color:#5C7591;} .str{color:#A8D8B9;}
+  .log{border-left:1px solid var(--line);margin-left:6px;padding-left:0;}
+  .log-item{position:relative;padding:0 0 32px 34px;}
+  .log-item:last-child{padding-bottom:0;}
+  .log-item::before{content:attr(data-n);position:absolute;left:-13px;top:0;width:24px;height:24px;background:var(--bg);border:1px solid var(--amber);color:var(--amber);font-family:'JetBrains Mono',monospace;font-size:11px;display:flex;align-items:center;justify-content:center;border-radius:50%;}
+  .log-item h3{font-size:16px;margin-bottom:6px;}
+  .log-item p{color:var(--muted);font-size:14.5px;}
+  .results-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:1px;background:var(--line);border:1px solid var(--line);margin-top:8px;}
+  .result-card{background:var(--bg);padding:22px;}
+  .result-card .metric{font-family:'JetBrains Mono',monospace;font-size:28px;color:var(--teal);}
+  .result-card .label{font-size:12.5px;color:var(--muted);margin-top:4px;}
+  .result-card .delta{font-family:'JetBrains Mono',monospace;font-size:12px;margin-top:8px;}
+  .delta.up{color:var(--amber);}
+  .callout{border:1px solid var(--line);border-left:2px solid var(--danger);border-radius:var(--radius);padding:18px 20px;margin-bottom:16px;background:rgba(255,107,94,0.04);}
+  .callout .tag{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--danger);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:6px;}
+  .callout p{color:var(--muted);font-size:14.5px;margin-bottom:0;}
+  ul.tick{list-style:none;}
+  ul.tick li{padding-left:22px;position:relative;margin-bottom:10px;color:var(--muted);font-size:15px;}
+  ul.tick li::before{content:"→";position:absolute;left:0;color:var(--amber);font-family:'JetBrains Mono',monospace;}
+  .task-table td:first-child{font-family:'JetBrains Mono',monospace;color:var(--amber);}
+  footer{padding:48px 0 80px;}
+  footer .foot-row{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px;}
+  footer .mono{color:var(--muted);font-size:12.5px;}
+  footer a{text-decoration:none;border-bottom:1px solid var(--line);padding-bottom:1px;}
+  @media (max-width:640px){.results-grid{grid-template-columns:1fr;} .hero{padding:64px 0 40px;}}
+  @media (prefers-reduced-motion: reduce){html{scroll-behavior:auto;}}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="bar">
+    <div class="brand"><span class="dot"></span>SENTRYBOT</div>
+    <div class="rev">REV C · AUG 2026</div>
+  </div>
+</header>
+
+<div class="wrap">
+
+  <section class="hero" style="border-bottom:none;">
+    <div class="eyebrow">Project Documentation / Embedded Systems</div>
+    <h1>SentryBot: a FreeRTOS line-following robot with obstacle avoidance</h1>
+    <p class="sub">A two-wheel robot running four concurrent FreeRTOS tasks on an ESP32 — line sensing, obstacle detection, motor control, and telemetry — coordinated through queues instead of one big loop.</p>
+
+    <div class="status-strip">
+      <div class="stat"><div class="n">4</div><div class="l">Concurrent RTOS tasks</div></div>
+      <div class="stat"><div class="n">5</div><div class="l">IR line sensors</div></div>
+      <div class="stat"><div class="n">~8ms</div><div class="l">Obstacle-to-stop reaction</div></div>
+      <div class="stat"><div class="n">~$34</div><div class="l">Total BOM cost</div></div>
+    </div>
+  </section>
+
+  <section id="overview">
+    <div class="eyebrow">01 / Overview</div>
+    <h2>What it does and why I built it</h2>
+    <p class="lede">I wanted a project that forced me past Arduino's single loop() model and into real concurrency — tasks with priorities, an ISR that has to hand off work safely, and shared state that has to be protected instead of just hoped about.</p>
+    <p>SentryBot follows a black line on a white surface using a 5-sensor IR array, while an ultrasonic sensor watches ahead for obstacles. Rather than reading every sensor and computing motor output in one loop, the firmware runs four FreeRTOS tasks: <span class="mono">LineSenseTask</span> (highest priority, reads the IR array and computes a steering correction), <span class="mono">ObstacleTask</span> (polls the ultrasonic sensor and can override steering), <span class="mono">MotorTask</span> (owns the motor driver and consumes commands from a queue), and <span class="mono">TelemetryTask</span> (lowest priority, streams state over serial for debugging).</p>
+    <p>A hardware interrupt on a front bumper switch can halt both motors immediately regardless of what any task is doing — that path deliberately bypasses the queue system entirely, since a physical collision needs a faster response than task scheduling can guarantee.</p>
+  </section>
+
+  <section id="bom">
+    <div class="eyebrow">02 / Bill of Materials</div>
+    <h2>Hardware used</h2>
+    <p class="lede">Chassis and motors came as a common "2WD robot kit"; everything else was sourced separately.</p>
+    <table>
+      <thead><tr><th>Component</th><th>Part</th><th>Qty</th><th>Cost</th></tr></thead>
+      <tbody>
+        <tr><td>Microcontroller</td><td class="mono">ESP32-WROOM-32 DevKit</td><td>1</td><td class="num">$6.40</td></tr>
+        <tr><td>Line sensor array</td><td class="mono">5-channel IR reflectance array</td><td>1</td><td class="num">$4.80</td></tr>
+        <tr><td>Obstacle sensor</td><td class="mono">HC-SR04 ultrasonic</td><td>1</td><td class="num">$1.90</td></tr>
+        <tr><td>Motor driver</td><td class="mono">TB6612FNG dual H-bridge</td><td>1</td><td class="num">$3.60</td></tr>
+        <tr><td>Chassis + motors</td><td class="mono">2WD acrylic chassis kit</td><td>1</td><td class="num">$12.50</td></tr>
+        <tr><td>Bumper switch</td><td class="mono">Lever microswitch</td><td>1</td><td class="num">$0.80</td></tr>
+        <tr><td>Battery</td><td class="mono">2S Li-ion pack, 7.4V</td><td>1</td><td class="num">$4.20</td></tr>
+      </tbody>
+      <tfoot><tr><td colspan="3">Total</td><td class="num">$34.20</td></tr></tfoot>
+    </table>
+  </section>
+
+  <section id="architecture">
+    <div class="eyebrow">03 / Task Architecture</div>
+    <h2>Four tasks, one queue, one interrupt</h2>
+    <p class="lede">Priorities matter here: line-following runs most often since it needs the tightest control loop, telemetry runs least often since it's only for debugging, and the bumper interrupt sits outside the whole scheduler.</p>
+
+    <div class="diagram">
+      <svg width="720" height="260" viewBox="0 0 720 260" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <g font-family="JetBrains Mono, monospace" font-size="12" fill="#E7EEF5">
+          <rect x="10" y="10" width="170" height="56" rx="2" stroke="#FFB020" fill="#0F2236"/>
+          <text x="95" y="33" text-anchor="middle" fill="#FFB020">LineSenseTask</text>
+          <text x="95" y="50" text-anchor="middle" fill="#8EA6BE" font-size="10">prio 3 · 5ms period</text>
+
+          <rect x="10" y="90" width="170" height="56" rx="2" stroke="#63E6D4" fill="#0F2236"/>
+          <text x="95" y="113" text-anchor="middle" fill="#63E6D4">ObstacleTask</text>
+          <text x="95" y="130" text-anchor="middle" fill="#8EA6BE" font-size="10">prio 2 · 20ms period</text>
+
+          <rect x="10" y="170" width="170" height="56" rx="2" stroke="#8EA6BE" fill="#0F2236"/>
+          <text x="95" y="193" text-anchor="middle" fill="#E7EEF5">TelemetryTask</text>
+          <text x="95" y="210" text-anchor="middle" fill="#8EA6BE" font-size="10">prio 1 · 200ms period</text>
+
+          <rect x="290" y="90" width="150" height="56" rx="2" stroke="#E7EEF5" fill="#0F2236"/>
+          <text x="365" y="113" text-anchor="middle" fill="#E7EEF5">Command Queue</text>
+          <text x="365" y="130" text-anchor="middle" fill="#8EA6BE" font-size="10">xQueueSend/Receive</text>
+
+          <rect x="540" y="90" width="170" height="56" rx="2" stroke="#FFB020" fill="#0F2236"/>
+          <text x="625" y="113" text-anchor="middle" fill="#FFB020">MotorTask</text>
+          <text x="625" y="130" text-anchor="middle" fill="#8EA6BE" font-size="10">prio 3 · owns TB6612</text>
+
+          <rect x="290" y="190" width="150" height="56" rx="2" stroke="#FF6B5E" fill="#0F2236"/>
+          <text x="365" y="213" text-anchor="middle" fill="#FF6B5E">Bumper ISR</text>
+          <text x="365" y="230" text-anchor="middle" fill="#8EA6BE" font-size="10">bypasses queue</text>
+        </g>
+        <g stroke="#22415e" stroke-width="1.5">
+          <path d="M180 38 H240 V118 H290"/>
+          <path d="M180 118 H290"/>
+          <path d="M180 198 H240 V118 H290" stroke-dasharray="3 3"/>
+          <path d="M440 118 H540"/>
+          <path d="M365 190 V146" stroke="#FF6B5E"/>
+        </g>
+      </svg>
+      <div class="diagram-caption">FIG. 01 — priority-scheduled tasks feed a shared queue; the bumper ISR cuts motors directly</div>
+    </div>
+  </section>
+
+  <section id="firmware">
+    <div class="eyebrow">04 / Firmware</div>
+    <h2>Task setup and the direct-cut ISR</h2>
+    <p class="lede">Simplified from the actual source. The bumper ISR sets motor PWM to zero directly rather than posting to the queue, so a collision doesn't wait on scheduling.</p>
+    <div class="code-label"><span>main.cpp</span><span>C++ / FreeRTOS</span></div>
+    <pre><span class="cm">// task creation, pinned to core 1</span>
+xTaskCreatePinnedToCore(LineSenseTask, <span class="str">"line"</span>,     <span class="str">2048</span>, NULL, <span class="str">3</span>, NULL, <span class="str">1</span>);
+xTaskCreatePinnedToCore(ObstacleTask,  <span class="str">"obstacle"</span>, <span class="str">2048</span>, NULL, <span class="str">2</span>, NULL, <span class="str">1</span>);
+xTaskCreatePinnedToCore(MotorTask,     <span class="str">"motor"</span>,    <span class="str">2048</span>, NULL, <span class="str">3</span>, NULL, <span class="str">1</span>);
+xTaskCreatePinnedToCore(TelemetryTask, <span class="str">"telem"</span>,    <span class="str">2048</span>, NULL, <span class="str">1</span>, NULL, <span class="str">1</span>);
+
+<span class="cm">// bumper interrupt: bypasses the queue entirely</span>
+<span class="kw">void</span> IRAM_ATTR <span class="fn">onBumperHit</span>() {
+  ledcWrite(MOTOR_L_CH, <span class="str">0</span>);
+  ledcWrite(MOTOR_R_CH, <span class="str">0</span>);
+  collisionFlag = <span class="kw">true</span>;  <span class="cm">// picked up by MotorTask next cycle</span>
+}
+
+<span class="cm">// MotorTask: only source allowed to drive the H-bridge</span>
+<span class="kw">void</span> <span class="fn">MotorTask</span>(<span class="kw">void</span>* pv) {
+  MotorCmd cmd;
+  <span class="kw">for</span> (;;) {
+    <span class="kw">if</span> (xQueueReceive(cmdQueue, &amp;cmd, portMAX_DELAY)) {
+      <span class="kw">if</span> (!collisionFlag) applyMotorCmd(cmd);
+    }
+  }
+}</pre>
+  </section>
+
+  <section id="build-log">
+    <div class="eyebrow">05 / Build Log</div>
+    <h2>How it came together</h2>
+    <div class="log">
+      <div class="log-item" data-n="1">
+        <h3>Single-task line follower</h3>
+        <p>Started with the simplest possible version — one loop reading the IR array and driving motors directly — to validate the sensor thresholds and steering math before introducing any concurrency.</p>
+      </div>
+      <div class="log-item" data-n="2">
+        <h3>Split into FreeRTOS tasks</h3>
+        <p>Refactored the working loop into LineSenseTask and MotorTask connected by a queue, which immediately surfaced a race condition where both tasks touched the motor driver directly — fixed by making MotorTask the sole owner of the H-bridge.</p>
+      </div>
+      <div class="log-item" data-n="3">
+        <h3>Obstacle task + priority tuning</h3>
+        <p>Added ObstacleTask and spent most of this stage adjusting task priorities and periods after the robot's steering became visibly jittery under the default round-robin scheduling.</p>
+      </div>
+      <div class="log-item" data-n="4">
+        <h3>Bumper ISR + telemetry</h3>
+        <p>Added the hardware interrupt for the bumper switch as a hard override outside the task system, then bolted on TelemetryTask last since it was purely for observing the other three.</p>
+      </div>
+    </div>
+  </section>
+
+  <section id="results">
+    <div class="eyebrow">06 / Testing &amp; Results</div>
+    <h2>What track testing showed</h2>
+    <div class="results-grid">
+      <div class="result-card">
+        <div class="metric">8.2ms</div>
+        <div class="label">Bumper hit → motors off</div>
+        <div class="delta up">measured w/ oscilloscope</div>
+      </div>
+      <div class="result-card">
+        <div class="metric">0.4%</div>
+        <div class="label">CPU idle time, worst case</div>
+        <div class="delta">during hard turns</div>
+      </div>
+      <div class="result-card">
+        <div class="metric">14/14</div>
+        <div class="label">Test-track laps completed</div>
+        <div class="delta up">incl. 2 sharp corners</div>
+      </div>
+      <div class="result-card">
+        <div class="metric">0</div>
+        <div class="label">Motor-driver race conditions</div>
+        <div class="delta up">after ownership fix</div>
+      </div>
+    </div>
+  </section>
+
+  <section id="challenges">
+    <div class="eyebrow">07 / Challenges</div>
+    <h2>What actually went wrong</h2>
+    <div class="callout">
+      <div class="tag">Issue — two tasks driving one motor</div>
+      <p>Early on, both LineSenseTask and ObstacleTask wrote to the motor driver directly, and under obstacle interrupts the robot's steering would visibly stutter. The fix was structural: neither task touches the H-bridge anymore, they only post MotorCmd structs to a queue that MotorTask alone consumes.</p>
+    </div>
+    <div class="callout">
+      <div class="tag">Issue — ISR doing too much work</div>
+      <p>My first version of the bumper ISR called a full stop-and-log function, which is unsafe inside an interrupt context. Trimmed it down to two register writes and a flag, with the actual logging deferred to TelemetryTask.</p>
+    </div>
+  </section>
+
+  <section id="future">
+    <div class="eyebrow">08 / Future Improvements</div>
+    <h2>What I'd do next</h2>
+    <ul class="tick">
+      <li>Add a PID controller to LineSenseTask instead of the current proportional-only steering correction.</li>
+      <li>Move telemetry off serial and onto a queue-backed BLE characteristic for wireless debugging.</li>
+      <li>Add a mutex-protected shared state struct so TelemetryTask can read task status without touching the command queue.</li>
+    </ul>
+  </section>
+
+</div>
+
+<footer>
+  <div class="wrap foot-row">
+    <div class="mono">SENTRYBOT — EMBEDDED SYSTEMS PORTFOLIO PROJECT</div>
+    <div class="mono"><a href="#overview">Back to top ↑</a></div>
+  </div>
+</footer>
+
+</body>
+</html>
